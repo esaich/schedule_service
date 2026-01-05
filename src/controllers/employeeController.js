@@ -20,18 +20,52 @@ exports.create = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
-    const { name, group_name, shift_id, is_off } = req.body;
-    const result = await db.query(
-        'UPDATE employee_schedules SET name=$1, group_name=$2, shift_id=$3, is_off=$4 WHERE nik=$5 RETURNING *',
-        [name, group_name, shift_id, is_off, req.params.nik]
-    );
-    res.json(result.rows[0]);
+    try {
+        const { id } = req.params; // Kuncinya pakai ID dari URL
+        
+        // Ambil SEMUA data dari Body Postman
+        const { nik, name, group_name, shift_id, is_off } = req.body; 
+
+        // Query ini akan mengupdate SEMUA kolom berdasarkan ID
+        const query = `
+            UPDATE employee_schedules 
+            SET nik = $1, 
+                name = $2, 
+                group_name = $3, 
+                shift_id = $4, 
+                is_off = $5
+            WHERE id = $6 
+            RETURNING *`;
+
+        const values = [nik, name, group_name, shift_id, is_off, id];
+        const result = await db.query(query, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Gagal! ID tidak ditemukan di database' });
+        }
+
+        res.json({
+            message: "MANTAP! Semua data karyawan berhasil diupdate",
+            data: result.rows[0]
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
+// Hapus juga pakai ID
 exports.delete = async (req, res) => {
-    await db.query('DELETE FROM employee_schedules WHERE nik = $1', [req.params.nik]);
-    res.json({ message: 'Deleted' });
+    try {
+        const { id } = req.params;
+        const result = await db.query('DELETE FROM employee_schedules WHERE id = $1', [id]);
+        
+        if (result.rowCount === 0) return res.status(404).json({ message: 'ID tidak ada' });
+        res.json({ message: `Karyawan dengan ID ${id} berhasil dihapus!` });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
+
 
 // Logika Khusus Perputaran
 exports.rotate = async (req, res) => {
